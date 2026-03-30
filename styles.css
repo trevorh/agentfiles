@@ -165,8 +165,8 @@
 
 .as-skill-header {
 	display: flex;
-	align-items: center;
-	gap: 4px;
+	align-items: baseline;
+	gap: 6px;
 }
 
 .as-skill-name {
@@ -177,6 +177,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
 }
 
 .as-skill-star {

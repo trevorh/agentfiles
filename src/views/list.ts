@@ -34,7 +34,7 @@ export class ListPanel {
 			const searchContainer = this.containerEl.createDiv("as-search");
 			this.inputEl = searchContainer.createEl("input", {
 				type: "text",
-				placeholder: "Search skills...",
+				placeholder: "Search agent files...",
 				cls: "as-search-input",
 			});
 			this.inputEl.addEventListener("input", () => {
@@ -57,7 +57,7 @@ export class ListPanel {
 		if (items.length === 0) {
 			this.listEl.createDiv({
 				cls: "as-list-empty",
-				text: "No skills found",
+				text: "No agent files found",
 			});
 			return;
 		}

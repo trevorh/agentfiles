@@ -10,7 +10,7 @@ import { homedir } from "os";
 import { parseYaml } from "obsidian";
 import { createHash } from "crypto";
 import { TOOL_CONFIGS } from "./tool-configs";
-import type { SkillItem, SkillPath, SkillType, ChopsSettings, ToolConfig } from "./types";
+import type { SkillItem, SkillPath, SkillType, NamingMode, ScanPattern, ChopsSettings, ToolConfig } from "./types";
 
 const IGNORED_FILES = new Set([
 	"readme.md",
@@ -48,23 +48,26 @@ function extractName(
 	frontmatter: Record<string, unknown>,
 	content: string,
 	filePath: string,
-	pattern: ScanPattern
+	namingMode: NamingMode = "auto"
 ): string {
-	if (typeof frontmatter.name === "string" && frontmatter.name) {
-		return frontmatter.name;
+	if (namingMode === "auto") {
+		if (typeof frontmatter.name === "string" && frontmatter.name) {
+			return frontmatter.name;
+		}
+		const h1 = content.match(/^#\s+(.+)$/m);
+		if (h1) return h1[1].trim();
 	}
+	// shared fallback for both modes
 	const name = basename(filePath, extname(filePath));
 	if (name === "SKILL") return basename(join(filePath, ".."));
-	if (pattern === "flat-md" || pattern === "mdc") return name;
-	const h1 = content.match(/^#\s+(.+)$/m);
-	if (h1) return h1[1].trim();
 	return name;
 }
 
 function scanDirectoryWithSkillMd(
 	baseDir: string,
 	type: SkillType,
-	toolId: string
+	toolId: string,
+	namingMode: NamingMode = "auto"
 ): SkillItem[] {
 	if (!existsSync(baseDir)) return [];
 	const items: SkillItem[] = [];
@@ -74,7 +77,7 @@ function scanDirectoryWithSkillMd(
 		const skillFile = join(baseDir, entry.name, "SKILL.md");
 		if (!existsSync(skillFile)) continue;
 
-		const item = parseSkillFile(skillFile, type, toolId);
+		const item = parseSkillFile(skillFile, type, toolId, "directory-with-skillmd", namingMode);
 		if (item) items.push(item);
 	}
 	return items;
@@ -83,7 +86,8 @@ function scanDirectoryWithSkillMd(
 function scanFlatMd(
 	baseDir: string,
 	type: SkillType,
-	toolId: string
+	toolId: string,
+	namingMode: NamingMode = "auto"
 ): SkillItem[] {
 	if (!existsSync(baseDir)) return [];
 	const items: SkillItem[] = [];
@@ -92,7 +96,7 @@ function scanFlatMd(
 		if (entry.isDirectory() || entry.isSymbolicLink()) {
 			const skillFile = join(baseDir, entry.name, "SKILL.md");
 			if (existsSync(skillFile)) {
-				const item = parseSkillFile(skillFile, type, toolId);
+				const item = parseSkillFile(skillFile, type, toolId, "flat-md", namingMode);
 				if (item) items.push(item);
 				continue;
 			}
@@ -107,7 +111,9 @@ function scanFlatMd(
 				const item = parseSkillFile(
 					join(baseDir, entry.name, preferred),
 					type,
-					toolId
+					toolId,
+					"flat-md",
+					namingMode
 				);
 				if (item) items.push(item);
 			}
@@ -116,7 +122,7 @@ function scanFlatMd(
 
 		const fname = entry.name.toLowerCase();
 		if (!fname.endsWith(".md") || IGNORED_FILES.has(fname)) continue;
-		const item = parseSkillFile(join(baseDir, entry.name), type, toolId, "flat-md");
+		const item = parseSkillFile(join(baseDir, entry.name), type, toolId, "flat-md", namingMode);
 		if (item) items.push(item);
 	}
 	return items;
@@ -125,7 +131,8 @@ function scanFlatMd(
 function scanMdc(
 	baseDir: string,
 	type: SkillType,
-	toolId: string
+	toolId: string,
+	namingMode: NamingMode = "auto"
 ): SkillItem[] {
 	if (!existsSync(baseDir)) return [];
 	const items: SkillItem[] = [];
@@ -133,7 +140,7 @@ function scanMdc(
 	for (const entry of readdirSync(baseDir, { withFileTypes: true })) {
 		if (!entry.name.endsWith(".mdc") && !entry.name.endsWith(".md")) continue;
 		if (entry.isDirectory()) continue;
-		const item = parseSkillFile(join(baseDir, entry.name), type, toolId, "mdc");
+		const item = parseSkillFile(join(baseDir, entry.name), type, toolId, "mdc", namingMode);
 		if (item) items.push(item);
 	}
 	return items;
@@ -143,13 +150,14 @@ function parseSkillFile(
 	filePath: string,
 	type: SkillType,
 	toolId: string,
-	pattern: ScanPattern = "directory-with-skillmd"
+	pattern: ScanPattern = "directory-with-skillmd",
+	namingMode: NamingMode = "auto"
 ): SkillItem | null {
 	try {
 		const raw = readFileSync(filePath, "utf-8");
 		const stat = statSync(filePath);
 		const { frontmatter, content } = parseFrontmatter(raw);
-		const name = extractName(frontmatter, content, filePath, pattern);
+		const name = extractName(frontmatter, content, filePath, namingMode);
 		const description =
 			typeof frontmatter.description === "string"
 				? frontmatter.description
@@ -183,14 +191,14 @@ function parseSkillFile(
 	}
 }
 
-function scanPath(sp: SkillPath, toolId: string): SkillItem[] {
+function scanPath(sp: SkillPath, toolId: string, namingMode: NamingMode = "auto"): SkillItem[] {
 	switch (sp.pattern) {
 		case "directory-with-skillmd":
-			return scanDirectoryWithSkillMd(sp.baseDir, sp.type, toolId);
+			return scanDirectoryWithSkillMd(sp.baseDir, sp.type, toolId, namingMode);
 		case "flat-md":
-			return scanFlatMd(sp.baseDir, sp.type, toolId);
+			return scanFlatMd(sp.baseDir, sp.type, toolId, namingMode);
 		case "mdc":
-			return scanMdc(sp.baseDir, sp.type, toolId);
+			return scanMdc(sp.baseDir, sp.type, toolId, namingMode);
 	}
 }
 
@@ -271,6 +279,7 @@ export function getProjectName(filePath: string, projectsHomeDir: string): strin
 }
 
 export function scanAll(settings: ChopsSettings): Map<string, SkillItem> {
+	const namingMode = settings.namingMode || "auto";
 	const items = new Map<string, SkillItem>();
 	const nameMap = new Map<string, string>();
 
@@ -309,7 +318,7 @@ export function scanAll(settings: ChopsSettings): Map<string, SkillItem> {
 
 		const allPaths = [...tool.paths, ...tool.agentPaths];
 		for (const sp of allPaths) {
-			for (const item of scanPath(sp, tool.id)) {
+			for (const item of scanPath(sp, tool.id, namingMode)) {
 				addItem(item, tool.id);
 			}
 		}

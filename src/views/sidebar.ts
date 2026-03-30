@@ -189,7 +189,7 @@ export class SidebarPanel {
 		section.createDiv({ cls: "as-sidebar-title", text: "Library" });
 
 		const libraryItems: { label: string; icon: string; filter: SidebarFilter }[] = [
-			{ label: "All Skills", icon: "layers", filter: { kind: "all" } },
+			{ label: "All Agent Files", icon: "layers", filter: { kind: "all" } },
 			{ label: "Favorites", icon: "star", filter: { kind: "favorites" } },
 		];
 
