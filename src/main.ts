@@ -4,7 +4,9 @@ import { SkillStore } from "./store";
 import { SkillWatcher } from "./watcher";
 import { getWatchPaths } from "./scanner";
 import { AgentfilesSettingTab } from "./settings";
-import { DEFAULT_SETTINGS, type ChopsSettings } from "./types";
+import { DEFAULT_SETTINGS, type ChopsSettings, type SkillItem } from "./types";
+
+const CACHE_KEY = "agentfiles-scan-cache";
 
 export default class AgentfilesPlugin extends Plugin {
 	settings: ChopsSettings = DEFAULT_SETTINGS;
@@ -34,6 +36,7 @@ export default class AgentfilesPlugin extends Plugin {
 
 		this.addSettingTab(new AgentfilesSettingTab(this.app, this));
 
+		this.loadScanCache();
 		this.refreshStore();
 		this.store.setDeepSearch(this.settings.deepSearchDefault ?? true);
 		this.startWatcher();
@@ -52,8 +55,37 @@ export default class AgentfilesPlugin extends Plugin {
 		this.stopWatcher();
 	}
 
-	refreshStore(): void {
-		this.store.refresh(this.settings);
+	refreshStore(showSpinner = false): void {
+		if (showSpinner) {
+			this.store.setScanning();
+		}
+		this.store.refresh(this.settings).then((updated) => {
+			if (updated) this.saveScanCache();
+		});
+	}
+
+	private loadScanCache(): void {
+		try {
+			const raw = localStorage.getItem(CACHE_KEY);
+			if (!raw) return;
+			const items: SkillItem[] = JSON.parse(raw);
+			if (Array.isArray(items) && items.length > 0) {
+				this.store.loadFromCache(items);
+			}
+		} catch { /* corrupt cache, ignore */ }
+	}
+
+	private saveScanCache(): void {
+		try {
+			const items = this.store.allItems.map(
+				({ content, frontmatter, usage, warnings, conflicts, ...rest }) => ({
+					...rest,
+					content: "",
+					frontmatter: {},
+				})
+			);
+			localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+		} catch { /* quota exceeded, ignore */ }
 	}
 
 	startWatcher(): void {
@@ -88,7 +120,20 @@ export default class AgentfilesPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData();
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+
+		// Migrate projectPaths from string[] to ProjectPathEntry[]
+		if (
+			Array.isArray(this.settings.projectPaths) &&
+			this.settings.projectPaths.length > 0 &&
+			typeof this.settings.projectPaths[0] === "string"
+		) {
+			this.settings.projectPaths = (this.settings.projectPaths as unknown as string[]).map(
+				(p) => ({ path: p, depth: 1 })
+			);
+			await this.saveSettings();
+		}
 	}
 
 	async saveSettings(): Promise<void> {

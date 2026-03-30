@@ -72,6 +72,7 @@ export class ListPanel {
 		);
 	}
 
+
 	private getSearchPlaceholder(): string {
 		const f = this.store.filter;
 		switch (f.kind) {
@@ -102,6 +103,13 @@ export class ListPanel {
 		if (!this.listEl) return;
 		this.listEl.empty();
 
+		if (this.store.scanning) {
+			const el = this.listEl.createDiv("as-list-scanning");
+			el.createDiv("as-scanning-spinner");
+			el.createSpan({ text: "Scanning..." });
+			return;
+		}
+
 		const items = this.store.filteredItems;
 
 		if (items.length === 0) {
@@ -123,6 +131,13 @@ export class ListPanel {
 
 		const header = card.createDiv("as-skill-header");
 		header.createSpan({ cls: "as-skill-name", text: item.name });
+
+		if (item.scope === "project" && item.projectName) {
+			header.createSpan({ cls: "as-project-badge", text: item.projectName });
+		} else if (item.scope === "global") {
+			const globeEl = header.createSpan("as-global-icon");
+			setIcon(globeEl, "globe");
+		}
 
 		if (item.isFavorite) {
 			const star = header.createSpan("as-skill-star");
@@ -180,6 +195,9 @@ export class ListPanel {
 		}
 		if (item.conflicts && item.conflicts.length > 0) {
 			meta.createSpan({ cls: "as-badge-conflict", text: "conflict" });
+		}
+		if (item.isDiscovered) {
+			meta.createSpan({ cls: "as-badge-discovered", text: "discovered" });
 		}
 
 		card.addEventListener("click", () => {

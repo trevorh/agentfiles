@@ -1,7 +1,9 @@
 import { MarkdownRenderer, Notice, setIcon, type App } from "obsidian";
-import { writeFileSync } from "fs";
+import { readFile } from "fs/promises";
+import { writeFileSync, readFileSync, statSync } from "fs";
 import { shell } from "electron";
 import type { SkillItem, ChopsSettings } from "../types";
+import { displayPath } from "../types";
 import type { SkillStore } from "../store";
 import { TOOL_CONFIGS } from "../tool-configs";
 import { TOOL_SVGS, renderToolIcon } from "../tool-icons";
@@ -58,7 +60,21 @@ export class DetailPanel {
 	show(item: SkillItem): void {
 		this.currentItem = item;
 		this.isEditing = false;
-		this.render();
+		if (!item.content && item.filePath) {
+			this.hydrateAndRender(item);
+		} else {
+			this.render();
+		}
+	}
+
+	private async hydrateAndRender(item: SkillItem): Promise<void> {
+		try {
+			item.content = await readFile(item.filePath, "utf-8");
+			const fileStat = statSync(item.filePath);
+			item.fileSize = fileStat.size;
+			item.lastModified = fileStat.mtimeMs;
+		} catch { /* file may not exist */ }
+		if (this.currentItem === item) this.render();
 	}
 
 	clear(): void {
@@ -166,6 +182,10 @@ export class DetailPanel {
 		meta.createSpan({ cls: "as-meta-item", text: formatDate(item.lastModified) });
 		meta.createSpan({ cls: "as-meta-item as-meta-type", text: item.type });
 
+		const pathEl = toolbar.createDiv("as-detail-path");
+		pathEl.setText(displayPath(item.filePath));
+		pathEl.title = item.filePath;
+
 		if (item.usage && item.usage.uses > 0) {
 			const usageMeta = toolbar.createDiv("as-detail-usage-bar");
 			usageMeta.createSpan({ cls: "as-usage-stat", text: `${item.usage.uses} uses` });
@@ -184,15 +204,9 @@ export class DetailPanel {
 
 	private renderFrontmatter(container: HTMLElement, item: SkillItem): void {
 		const keys = Object.keys(item.frontmatter);
+		if (keys.length === 0) return;
+
 		const section = container.createDiv("as-frontmatter");
-
-		if (item.filePath) {
-			const pathProp = section.createDiv("as-fm-prop");
-			pathProp.createSpan({ cls: "as-fm-key", text: "path" });
-			pathProp.createSpan({ cls: "as-fm-value", text: item.filePath });
-		}
-
-		if (keys.length === 0 && !item.filePath) return;
 
 		for (const key of keys) {
 			const value = item.frontmatter[key];

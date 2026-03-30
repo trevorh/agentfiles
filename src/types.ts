@@ -1,3 +1,41 @@
+import { homedir } from "os";
+import { join } from "path";
+import { realpathSync, lstatSync } from "fs";
+
+const HOME = homedir();
+const SHORTABLE_DIRS = ["Documents"];
+
+let _symlinkMap: Map<string, string> | null = null;
+
+function getSymlinkMap(): Map<string, string> {
+	if (_symlinkMap) return _symlinkMap;
+	_symlinkMap = new Map();
+	for (const dir of SHORTABLE_DIRS) {
+		const logical = join(HOME, dir);
+		try {
+			const stat = lstatSync(logical);
+			if (stat.isSymbolicLink()) {
+				const real = realpathSync(logical);
+				_symlinkMap.set(real, logical);
+			}
+		} catch { /* missing dir is fine */ }
+	}
+	return _symlinkMap;
+}
+
+export function displayPath(filePath: string): string {
+	for (const [real, logical] of getSymlinkMap()) {
+		if (filePath.startsWith(real + "/") || filePath === real) {
+			filePath = logical + filePath.slice(real.length);
+			break;
+		}
+	}
+	if (filePath.startsWith(HOME + "/") || filePath === HOME) {
+		filePath = "~" + filePath.slice(HOME.length);
+	}
+	return filePath;
+}
+
 export interface ToolConfig {
 	id: string;
 	name: string;
@@ -6,6 +44,7 @@ export interface ToolConfig {
 	svg?: string;
 	paths: SkillPath[];
 	agentPaths: SkillPath[];
+	projectPaths: ProjectSkillPath[];
 	isInstalled: () => boolean;
 }
 
@@ -15,8 +54,27 @@ export interface SkillPath {
 	pattern: ScanPattern;
 }
 
+export interface ProjectSkillPath {
+	relDir: string;
+	type: SkillType;
+	pattern: ScanPattern;
+}
+
 export type SkillType = "skill" | "command" | "agent" | "rule" | "memory";
-export type ScanPattern = "directory-with-skillmd" | "flat-md" | "mdc";
+export type ScanPattern = "directory-with-skillmd" | "flat-md" | "mdc" | "single-file" | "recursive-filename";
+
+export type SkillScope = "global" | "project";
+
+export interface ScanContext {
+	scope: SkillScope;
+	projectName?: string;
+	projectDir?: string;
+}
+
+export interface ProjectPathEntry {
+	path: string;
+	depth: number;
+}
 
 export interface SkillItem {
 	id: string;
@@ -24,6 +82,9 @@ export interface SkillItem {
 	description: string;
 	type: SkillType;
 	tools: string[];
+	scope: SkillScope;
+	projectDir?: string;
+	projectName?: string;
 	filePath: string;
 	realPath: string;
 	dirPath: string;
@@ -32,6 +93,7 @@ export interface SkillItem {
 	lastModified: number;
 	fileSize: number;
 	isFavorite: boolean;
+	isDiscovered: boolean;
 	collections: string[];
 	usage?: {
 		uses: number;
@@ -64,7 +126,8 @@ export type SidebarFilter =
 	| { kind: "tool"; toolId: string }
 	| { kind: "type"; type: SkillType }
 	| { kind: "collection"; name: string }
-	| { kind: "project"; project: string };
+	| { kind: "scope"; scope: SkillScope }
+	| { kind: "project"; projectPath: string };
 
 export type NamingMode = "auto" | "filename";
 
@@ -77,8 +140,8 @@ export interface ChopsSettings {
 	collections: Record<string, string[]>;
 	customScanPaths: string[];
 	namingMode: NamingMode;
-	projectScanEnabled: boolean;
-	projectsHomeDir: string;
+	projectPaths: ProjectPathEntry[];
+	discoverSkills: boolean;
 }
 
 export const DEFAULT_SETTINGS: ChopsSettings = {
@@ -90,6 +153,6 @@ export const DEFAULT_SETTINGS: ChopsSettings = {
 	collections: {},
 	customScanPaths: [],
 	namingMode: "auto",
-	projectScanEnabled: true,
-	projectsHomeDir: "",
+	projectPaths: [],
+	discoverSkills: true,
 };

@@ -1,7 +1,7 @@
 import { homedir } from "os";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { join } from "path";
-import type { ToolConfig } from "./types";
+import type { ToolConfig, ProjectSkillPath } from "./types";
 
 const HOME = homedir();
 const XDG_CONFIG = process.env.XDG_CONFIG_HOME || join(HOME, ".config");
@@ -56,6 +56,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 				pattern: "flat-md",
 			},
 		],
+		projectPaths: [{ relDir: ".claude/commands", type: "command", pattern: "flat-md" }, { relDir: ".claude/skills", type: "skill", pattern: "directory-with-skillmd" }, { relDir: ".claude/agents", type: "agent", pattern: "flat-md" }, { relDir: "CLAUDE.md", type: "rule", pattern: "recursive-filename" }],
 		isInstalled: () =>
 			existsSync(join(HOME, ".claude", "settings.json")) ||
 			existsSync(join(HOME, ".claude", "CLAUDE.md")) ||
@@ -85,6 +86,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 				pattern: "flat-md",
 			},
 		],
+		projectPaths: [{ relDir: ".cursor/skills", type: "skill", pattern: "directory-with-skillmd" }, { relDir: ".cursor/rules", type: "rule", pattern: "mdc" }, { relDir: ".cursorrules", type: "rule", pattern: "single-file" }],
 		isInstalled: () =>
 			appExists("Cursor") ||
 			existsSync(join(HOME, ".cursor", "argv.json")),
@@ -107,6 +109,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [{ relDir: ".windsurfrules", type: "rule", pattern: "single-file" }, { relDir: ".windsurf/rules", type: "rule", pattern: "mdc" }],
 		isInstalled: () =>
 			appExists("Windsurf") ||
 			existsSync(join(HOME, ".codeium", "windsurf", "argv.json")),
@@ -140,6 +143,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 				pattern: "flat-md",
 			},
 		],
+		projectPaths: [{ relDir: "codex.md", type: "rule", pattern: "single-file" }],
 		isInstalled: () =>
 			existsSync(join(HOME, ".codex", "config.toml")) ||
 			existsSync(join(HOME, ".codex", "auth.json")) ||
@@ -158,6 +162,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [{ relDir: ".github/copilot-instructions.md", type: "rule", pattern: "single-file" }],
 		isInstalled: () =>
 			existsSync(join(HOME, ".copilot")) || cliExists("copilot"),
 	},
@@ -174,6 +179,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [{ relDir: ".amp/rules", type: "rule", pattern: "flat-md" }],
 		isInstalled: () =>
 			existsSync(join(XDG_CONFIG, "amp", "config.json")) ||
 			existsSync(join(XDG_CONFIG, "amp", "settings.json")) ||
@@ -192,6 +198,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [],
 		isInstalled: () =>
 			appExists("OpenCode") ||
 			existsSync(join(XDG_CONFIG, "opencode", "opencode.json")) ||
@@ -211,6 +218,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [],
 		isInstalled: () => cliExists("pi"),
 	},
 	{
@@ -226,6 +234,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [],
 		isInstalled: () =>
 			appExists("Antigravity") ||
 			existsSync(join(HOME, ".gemini", "antigravity", "skills")) ||
@@ -238,6 +247,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 		icon: "monitor",
 		paths: [],
 		agentPaths: [],
+		projectPaths: [],
 		isInstalled: () => appExists("Claude"),
 	},
 	{
@@ -253,6 +263,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 			},
 		],
 		agentPaths: [],
+		projectPaths: [],
 		isInstalled: () => existsSync(join(HOME, ".agents", "skills")),
 	},
 	{
@@ -262,6 +273,7 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 		icon: "wrench",
 		paths: [],
 		agentPaths: [],
+		projectPaths: [{ relDir: ".aider.conf.yml", type: "rule", pattern: "single-file" }],
 		isInstalled: () => cliExists("aider"),
 	},
 ];

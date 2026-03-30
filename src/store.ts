@@ -1,6 +1,7 @@
 import { Events } from "obsidian";
+import { basename } from "path";
 import type { SkillItem, SidebarFilter, ChopsSettings } from "./types";
-import { scanAll, getProjectName } from "./scanner";
+import { scanAll } from "./scanner";
 import { getSkillkitStatsWithDaily, getSkillConflicts, getSkillWarnings, isSkillkitAvailable } from "./skillkit";
 
 export class SkillStore extends Events {
@@ -8,7 +9,8 @@ export class SkillStore extends Events {
 	private _filter: SidebarFilter = { kind: "all" };
 	private _searchQuery = "";
 	private _deepSearch = true;
-	private _projectsHomeDir = "";
+	private _scanning = false;
+	private _scanGen = 0;
 
 	get filter(): SidebarFilter {
 		return this._filter;
@@ -22,6 +24,10 @@ export class SkillStore extends Events {
 		return this._deepSearch;
 	}
 
+	get scanning(): boolean {
+		return this._scanning;
+	}
+
 	get allItems(): SkillItem[] {
 		return Array.from(this.items.values());
 	}
@@ -29,26 +35,28 @@ export class SkillStore extends Events {
 	get filteredItems(): SkillItem[] {
 		let result = this.allItems;
 
-		switch (this._filter.kind) {
+		const f = this._filter;
+		switch (f.kind) {
 			case "favorites":
 				result = result.filter((i) => i.isFavorite);
 				break;
 			case "tool":
-				result = result.filter((i) =>
-					i.tools.includes(this._filter.toolId)
-				);
+				result = result.filter((i) => i.tools.includes(f.toolId));
 				break;
 			case "type":
-				result = result.filter((i) => i.type === this._filter.type);
+				result = result.filter((i) => i.type === f.type);
 				break;
 			case "collection":
-				result = result.filter((i) =>
-					i.collections.includes(this._filter.name)
-				);
+				result = result.filter((i) => i.collections.includes(f.name));
+				break;
+			case "scope":
+				result = result.filter((i) => i.scope === f.scope);
 				break;
 			case "project":
 				result = result.filter(
-					(i) => getProjectName(i.filePath, this._projectsHomeDir) === this._filter.project
+					(i) =>
+						i.scope === "project" &&
+						i.projectDir === f.projectPath
 				);
 				break;
 		}
@@ -76,10 +84,27 @@ export class SkillStore extends Events {
 		return isSkillkitAvailable();
 	}
 
-	refresh(settings: ChopsSettings): void {
-		this._projectsHomeDir = settings.projectsHomeDir;
-		this.items = scanAll(settings);
+	async refresh(settings: ChopsSettings): Promise<boolean> {
+		const gen = ++this._scanGen;
+		const items = await scanAll(settings);
+		if (gen !== this._scanGen) return false; // stale scan, discard
+		this.items = items;
 		this.enrichWithSkillkit();
+		this._scanning = false;
+		this.trigger("updated");
+		return true;
+	}
+
+	loadFromCache(cached: SkillItem[]): void {
+		if (this.items.size > 0) return; // real data already loaded
+		const map = new Map<string, SkillItem>();
+		for (const item of cached) map.set(item.id, item);
+		this.items = map;
+		this.trigger("updated");
+	}
+
+	setScanning(): void {
+		this._scanning = true;
 		this.trigger("updated");
 	}
 
@@ -170,12 +195,30 @@ export class SkillStore extends Events {
 		return counts;
 	}
 
+	getScopeCounts(): Map<string, number> {
+		const counts = new Map<string, number>();
+		for (const item of this.items.values()) {
+			counts.set(item.scope, (counts.get(item.scope) || 0) + 1);
+		}
+		return counts;
+	}
+
 	getProjectCounts(): Map<string, number> {
 		const counts = new Map<string, number>();
 		for (const item of this.items.values()) {
-			const project = getProjectName(item.filePath, this._projectsHomeDir);
-			counts.set(project, (counts.get(project) || 0) + 1);
+			if (item.scope === "project" && item.projectDir) {
+				counts.set(item.projectDir, (counts.get(item.projectDir) || 0) + 1);
+			}
 		}
 		return counts;
+	}
+
+	getProjectDisplayName(projectDir: string): string {
+		for (const item of this.items.values()) {
+			if (item.projectDir === projectDir && item.projectName) {
+				return item.projectName;
+			}
+		}
+		return basename(projectDir);
 	}
 }

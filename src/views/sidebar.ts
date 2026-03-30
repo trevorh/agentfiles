@@ -37,6 +37,7 @@ export class SidebarPanel {
 		this.renderLibrarySection();
 		this.renderTypeSection();
 		this.renderToolSection();
+		this.renderScopeSection();
 		this.renderProjectSection();
 		this.renderCollectionSection();
 
@@ -134,16 +135,36 @@ export class SidebarPanel {
 		}
 	}
 
+	private renderScopeSection(): void {
+		const counts = this.store.getScopeCounts();
+		if (!counts.has("project") || counts.get("project") === 0) return;
+
+		this.renderSection("Scope", [
+			{
+				label: "Global",
+				icon: "globe",
+				filter: { kind: "scope", scope: "global" },
+				count: counts.get("global") || 0,
+			},
+			{
+				label: "Project",
+				icon: "folder-git-2",
+				filter: { kind: "scope", scope: "project" },
+				count: counts.get("project") || 0,
+			},
+		]);
+	}
+
 	private renderProjectSection(): void {
 		const projectCounts = this.store.getProjectCounts();
 		if (projectCounts.size === 0) return;
 
 		const items: { label: string; icon: string; filter: SidebarFilter; count: number }[] = [];
-		for (const [project, count] of projectCounts) {
+		for (const [dir, count] of projectCounts) {
 			items.push({
-				label: project,
+				label: this.store.getProjectDisplayName(dir),
 				icon: "folder-git-2",
-				filter: { kind: "project", project },
+				filter: { kind: "project", projectPath: dir },
 				count,
 			});
 		}
@@ -262,8 +283,10 @@ export class SidebarPanel {
 			return current.type === filter.type;
 		if (current.kind === "collection" && filter.kind === "collection")
 			return current.name === filter.name;
+		if (current.kind === "scope" && filter.kind === "scope")
+			return current.scope === filter.scope;
 		if (current.kind === "project" && filter.kind === "project")
-			return current.project === filter.project;
+			return current.projectPath === filter.projectPath;
 		return true;
 	}
 }
