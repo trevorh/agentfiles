@@ -59,6 +59,20 @@ export class AgentfilesSettingTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Content search by default")
+			.setDesc(
+				"Search file content in addition to metadata when the view opens"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.deepSearchDefault ?? true)
+					.onChange(async (value) => {
+						this.plugin.settings.deepSearchDefault = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
 		new Setting(containerEl).setName("Project scanning").setHeading();
 
 		new Setting(containerEl)

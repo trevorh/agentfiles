@@ -10,6 +10,7 @@ export class ListPanel {
 	private onSelect: (item: SkillItem) => void;
 	private selectedId: string | null = null;
 	private inputEl: HTMLInputElement | null = null;
+	private deepToggleEl: HTMLButtonElement | null = null;
 	private listEl: HTMLElement | null = null;
 
 	constructor(
@@ -41,11 +42,60 @@ export class ListPanel {
 				this.store.setSearch(this.inputEl!.value);
 			});
 
+			this.deepToggleEl = searchContainer.createEl("button", {
+				cls: "as-deep-toggle",
+				attr: { "aria-label": "Search file content in addition to metadata" },
+			});
+			setIcon(this.deepToggleEl, "search-code");
+			this.deepToggleEl.addEventListener("click", () => {
+				this.store.setDeepSearch(!this.store.deepSearch);
+				this.updateDeepToggle();
+			});
+
 			this.listEl = this.containerEl.createDiv("as-list-items");
 		}
 
 		this.inputEl.value = this.store.searchQuery;
+		this.inputEl.placeholder = this.getSearchPlaceholder();
+		this.updateDeepToggle();
 		this.renderList();
+	}
+
+	private updateDeepToggle(): void {
+		if (!this.deepToggleEl) return;
+		this.deepToggleEl.toggleClass("is-active", this.store.deepSearch);
+		this.deepToggleEl.setAttribute(
+			"aria-label",
+			this.store.deepSearch
+				? "Content search enabled — searching file content and metadata"
+				: "Content search disabled — searching metadata only"
+		);
+	}
+
+	private getSearchPlaceholder(): string {
+		const f = this.store.filter;
+		switch (f.kind) {
+			case "type": {
+				const labels: Record<string, string> = {
+					skill: "skills", command: "commands", agent: "agents", rule: "rules", memory: "memories",
+				};
+				return `Search ${labels[f.type] || f.type}...`;
+			}
+			case "tool": {
+				const tool = TOOL_CONFIGS.find((t) => t.id === f.toolId);
+				return tool ? `Search ${tool.name} files...` : "Search agent files...";
+			}
+			case "favorites":
+				return "Search favorites...";
+			case "scope":
+				return `Search ${f.scope} agent files...`;
+			case "project":
+				return "Search project files...";
+			case "collection":
+				return `Search ${f.name}...`;
+			default:
+				return "Search agent files...";
+		}
 	}
 
 	private renderList(): void {

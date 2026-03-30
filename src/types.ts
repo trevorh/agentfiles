@@ -72,6 +72,7 @@ export interface ChopsSettings {
 	tools: Record<string, { enabled: boolean; customPaths: string[] }>;
 	watchEnabled: boolean;
 	watchDebounceMs: number;
+	deepSearchDefault: boolean;
 	favorites: string[];
 	collections: Record<string, string[]>;
 	customScanPaths: string[];
@@ -84,6 +85,7 @@ export const DEFAULT_SETTINGS: ChopsSettings = {
 	tools: {},
 	watchEnabled: true,
 	watchDebounceMs: 500,
+	deepSearchDefault: true,
 	favorites: [],
 	collections: {},
 	customScanPaths: [],

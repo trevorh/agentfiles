@@ -7,6 +7,7 @@ export class SkillStore extends Events {
 	private items: Map<string, SkillItem> = new Map();
 	private _filter: SidebarFilter = { kind: "all" };
 	private _searchQuery = "";
+	private _deepSearch = true;
 	private _projectsHomeDir = "";
 
 	get filter(): SidebarFilter {
@@ -15,6 +16,10 @@ export class SkillStore extends Events {
 
 	get searchQuery(): string {
 		return this._searchQuery;
+	}
+
+	get deepSearch(): boolean {
+		return this._deepSearch;
 	}
 
 	get allItems(): SkillItem[] {
@@ -54,7 +59,9 @@ export class SkillStore extends Events {
 				(i) =>
 					i.name.toLowerCase().includes(q) ||
 					i.description.toLowerCase().includes(q) ||
-					i.content.toLowerCase().includes(q)
+					i.type.toLowerCase().includes(q) ||
+					(i.projectName && i.projectName.toLowerCase().includes(q)) ||
+					(this._deepSearch && i.content.toLowerCase().includes(q))
 			);
 		}
 
@@ -125,6 +132,11 @@ export class SkillStore extends Events {
 
 	setSearch(query: string): void {
 		this._searchQuery = query;
+		this.trigger("updated");
+	}
+
+	setDeepSearch(enabled: boolean): void {
+		this._deepSearch = enabled;
 		this.trigger("updated");
 	}
 
